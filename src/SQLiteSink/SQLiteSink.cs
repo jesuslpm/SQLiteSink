@@ -1,6 +1,7 @@
 ﻿using Serilog.Core;
 using Serilog.Debugging;
 using Serilog.Events;
+using Serilog.Formatting.Display;
 using Serilog.Formatting.Json;
 using System.Data.SQLite;
 using System.Threading.Channels;
@@ -14,14 +15,16 @@ namespace Serilog.Sinks.SQLite
 		private readonly Channel<LogEvent> queue = Channel.CreateBounded<LogEvent>(2048);
 		private readonly Task processLogQueueTask;
 		private readonly Task purgeLogsTask;
+		private readonly MessageTemplateTextFormatter formatter;
 		private readonly CancellationTokenSource cts = new CancellationTokenSource();
 		private readonly SQLiteCommand insertCommand;
 		private SQLiteParameter? timestampParam;
 		private SQLiteParameter? levelParam;
 		private SQLiteParameter? messageParam;
+		private SQLiteParameter? mtParam;
 		private SQLiteParameter? propsParam;
 		private SQLiteParameter? sourceContextParam;
-		private SQLiteParameter? traceIdentifierParam;
+		private SQLiteParameter? requestIdParam;
 		private SQLiteParameter? traceIdParam;
 		private SQLiteParameter? spanIdParam;
 		private JsonValueFormatter jsonValueFormatter = new JsonValueFormatter();
@@ -38,6 +41,16 @@ namespace Serilog.Sinks.SQLite
 			insertCommand = CreateInsertCommand();
 			this.processLogQueueTask = ProcessLogQueueAsync();
 			this.purgeLogsTask = PurgeLogs();
+			this.formatter = new MessageTemplateTextFormatter("{Message:lj}");
+		}
+
+		private string GetFormattedMessage(LogEvent logEvent)
+		{
+			using (var writer = new StringWriter())
+			{
+				this.formatter.Format(logEvent, writer);
+				return writer.ToString();
+			}
 		}
 		public void Emit(LogEvent logEvent)
 		{
@@ -49,8 +62,8 @@ namespace Serilog.Sinks.SQLite
 		{
 			var command = connection.CreateCommand();
 			command.CommandText = @"
-INSERT INTO Logs (Timestamp, Level, Message, Properties, SourceContext, TraceIdentifier, Exception, TraceId, SpanId) 
-VALUES (@ts, @level, @msg, @props, @sourceContext, @traceIdentifier, @exception, @traceId, @spanId);";
+INSERT INTO Logs (Timestamp, Level, Message, MessageTemplate, Properties, SourceContext, RequestId, Exception, TraceId, SpanId) 
+VALUES (@ts, @level, @msg, @mt, @props, @sourceContext, @requestId, @exception, @traceId, @spanId);";
 
 			this.timestampParam = command.CreateParameter();
 			timestampParam.ParameterName = "@ts";
@@ -68,6 +81,12 @@ VALUES (@ts, @level, @msg, @props, @sourceContext, @traceIdentifier, @exception,
 			messageParam.DbType = System.Data.DbType.String;
 			command.Parameters.Add(messageParam);
 
+			this.mtParam = command.CreateParameter();
+			mtParam.DbType = System.Data.DbType.String;
+			mtParam.ParameterName = "@mt";
+			mtParam.DbType = System.Data.DbType.String;
+			command.Parameters.Add(mtParam);
+
 			this.propsParam = command.CreateParameter();
 			propsParam.ParameterName = "@props";
 			propsParam.DbType = System.Data.DbType.String;
@@ -78,10 +97,10 @@ VALUES (@ts, @level, @msg, @props, @sourceContext, @traceIdentifier, @exception,
 			sourceContextParam.DbType = System.Data.DbType.String;
 			command.Parameters.Add(sourceContextParam);
 
-			this.traceIdentifierParam = command.CreateParameter();
-			traceIdentifierParam.ParameterName = "@traceIdentifier";
-			traceIdentifierParam.DbType = System.Data.DbType.String;
-			command.Parameters.Add(traceIdentifierParam);
+			this.requestIdParam = command.CreateParameter();
+			requestIdParam.ParameterName = "@requestId";
+			requestIdParam.DbType = System.Data.DbType.String;
+			command.Parameters.Add(requestIdParam);
 
 			this.exceptionParam = command.CreateParameter();
 			exceptionParam.ParameterName = "@exception";
@@ -128,19 +147,20 @@ CREATE TABLE IF NOT EXISTS Logs (
     SourceContext TEXT,
     Level TEXT,
     Message TEXT,
-	TraceIdentifier TEXT,
+	MessageTemplate TEXT,
+	RequestId TEXT,
 	TraceId TEXT,
 	SpanId TEXT,
     Properties TEXT,
 	Exception TEXT
 );
 CREATE INDEX IF NOT EXISTS IX_Logs_Timestamp ON Logs(Timestamp);
-CREATE INDEX IF NOT EXISTS IX_Logs_TraceIdentifier ON Logs(TraceIdentifier);";
+CREATE INDEX IF NOT EXISTS IX_Logs_RequestId ON Logs(RequestId);";
 			command.ExecuteNonQuery();
 		}
 
 		private static HashSet<string> ignoredProperties = new HashSet<string> { 
-			"SourceContext", "TraceIdentifier", "SpanId", "TraceId" 
+			"SourceContext", "RequestId", "SpanId", "TraceId" 
 		};
 
 		public string GetPropertiesJson(LogEvent logEvent)
@@ -190,25 +210,26 @@ CREATE INDEX IF NOT EXISTS IX_Logs_TraceIdentifier ON Logs(TraceIdentifier);";
 				{
 					this.sourceContextParam!.Value = DBNull.Value;
 				}
-				if (logEvent.Properties.TryGetValue("TraceIdentifier", out var traceIdentifier))
+				if (logEvent.Properties.TryGetValue("RequestId", out var requestId))
 				{
-					var scalarValue = traceIdentifier as ScalarValue;
+					var scalarValue = requestId as ScalarValue;
 					if (scalarValue == null)
 					{
-						this.traceIdentifierParam!.Value = traceIdentifier.ToString();
+						this.requestIdParam!.Value = requestId.ToString();
 					}
 					else
 					{
-						this.traceIdentifierParam!.Value = scalarValue.Value;
+						this.requestIdParam!.Value = scalarValue.Value;
 					}
 				}
 				else
 				{
-					this.traceIdentifierParam!.Value = DBNull.Value;
+					this.requestIdParam!.Value = DBNull.Value;
 				}
 				this.timestampParam!.Value = logEvent.Timestamp.UtcDateTime;
 				this.levelParam!.Value = logEvent.Level.ToString();
-				this.messageParam!.Value = logEvent.RenderMessage();
+				this.messageParam!.Value = GetFormattedMessage(logEvent);
+				this.mtParam!.Value = logEvent.MessageTemplate.Text;
 				var propertiesJson = GetPropertiesJson(logEvent);
 				this.propsParam!.Value = (string.IsNullOrEmpty(propertiesJson) | propertiesJson == "{}") ? DBNull.Value : propertiesJson;
 				this.traceIdParam!.Value = logEvent.TraceId.HasValue ? logEvent.TraceId.ToString() : DBNull.Value;
