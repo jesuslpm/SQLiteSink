@@ -1,0 +1,1 @@
+dotnet pack %~dp0..\src\SQLiteSink\SQLiteSink.csproj -c Release -p:ContinuousIntegrationBuild=true --output %~dp0nupkgs
