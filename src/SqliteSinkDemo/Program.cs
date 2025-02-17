@@ -51,7 +51,10 @@ namespace SqliteSinkDemo
 			Log.Logger = new LoggerConfiguration()
 				.MinimumLevel.Debug()
 				.Enrich.FromLogContext()
-				.WriteTo.SQLite( databasePath: path,journalMode: SQLiteJournalModeEnum.Wal)
+				.WriteTo.SQLite( 
+					databasePath: path,
+					journalMode: SQLiteJournalModeEnum.Wal,
+					retentionPeriod: TimeSpan.FromDays(7))
 				.CreateLogger();
 		}
 
