@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
 	<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 	<Title>SQLiteSink</Title>
-	<Version>0.3.0</Version>
+	<Version>0.4.0</Version>
 	<Authors>jesuslpm</Authors>
 	<Description>Serilog sink that write logs to SQLite database</Description>
 	<Copyright>Copyright 2025</Copyright>

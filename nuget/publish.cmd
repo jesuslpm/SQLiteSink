@@ -1,2 +1,2 @@
 dotnet pack %~dp0..\src\SQLiteSink\SQLiteSink.csproj -c Release -p:ContinuousIntegrationBuild=true --output %~dp0nupkgs
-dotnet nuget push %~dp0nupkgs\SQLiteSink.0.3.0.nupkg --api-key %NUGET_API_KEY% --source https://api.nuget.org/v3/index.json
+dotnet nuget push %~dp0nupkgs\SQLiteSink.0.4.0.nupkg --api-key %NUGET_API_KEY% --source https://api.nuget.org/v3/index.json
