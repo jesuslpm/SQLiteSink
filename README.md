@@ -18,16 +18,16 @@ SQLiteSink writes logs to Logs table:
 
 ```SQL
 CREATE TABLE IF NOT EXISTS Logs (
-    Id INTEGER PRIMARY KEY,
-    Timestamp datetime,
-    SourceContext TEXT,
-    Level TEXT,
-    Message TEXT,
+	Id INTEGER PRIMARY KEY,
+	Timestamp datetime,
+	SourceContext TEXT,
+	Level TEXT,
+	Message TEXT,
 	MessageTemplate TEXT,
 	RequestId TEXT,
 	TraceId TEXT,
 	SpanId TEXT,
-    Properties TEXT,
+	Properties TEXT,
 	Exception TEXT
 );
 ```

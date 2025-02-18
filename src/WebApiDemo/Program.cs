@@ -2,6 +2,7 @@
 using Serilog;
 using Serilog.Formatting.Compact;
 using Serilog.Sinks.SQLite;
+using Serilog.Sinks.SystemConsole.Themes;
 
 namespace WebApiDemo
 {
@@ -16,15 +17,18 @@ namespace WebApiDemo
 				var logFolderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Log");
 				if (Directory.Exists(logFolderPath) == false) Directory.CreateDirectory(logFolderPath);
 				var databasePath = Path.Combine(logFolderPath, "Log.db");
-
 				configuration
 					.MinimumLevel.Information()
 					.ReadFrom.Configuration(context.Configuration)
-					.ReadFrom.Services(services)
+					// .ReadFrom.Services(services)
 					.Enrich.FromLogContext()
-					.WriteTo.Console(new CompactJsonFormatter())
 					.WriteTo.SQLite(databasePath);
 
+				if (builder.Environment.IsDevelopment())
+				{
+					const string outputTemplate = "{Timestamp:HH:mm:ss.ff} [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}";
+					configuration.WriteTo.Console(outputTemplate: outputTemplate);
+				}
 			});
 
 			builder.Services.AddControllers();
@@ -32,18 +36,12 @@ namespace WebApiDemo
 			builder.Services.AddOpenApi();
 
 			var app = builder.Build();
-
-			// Configure the HTTP request pipeline.
 			if (app.Environment.IsDevelopment())
 			{
 				app.MapOpenApi();
 			}
-
 			app.UseHttpsRedirection();
-
 			app.UseAuthorization();
-
-
 			app.MapControllers();
 
 			app.Run();
