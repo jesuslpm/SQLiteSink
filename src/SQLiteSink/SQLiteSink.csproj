@@ -1,12 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFrameworks>net9.0;net8.0;net6.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 	<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 	<Title>SQLiteSink</Title>
-	<Version>0.2.0</Version>
+	<Version>0.3.0</Version>
 	<Authors>jesuslpm</Authors>
 	<Description>Serilog sink that write logs to SQLite database</Description>
 	<Copyright>Copyright 2025</Copyright>
@@ -23,6 +23,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="..\..\nuget\publish.cmd" Link="publish.cmd" />
     <None Include="..\..\README.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>

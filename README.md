@@ -1,7 +1,7 @@
 # SQLiteSink
 Serilog sink that write logs to SQLite database.
 
-```c#
+```csharp
 Log.Logger = new LoggerConfiguration()
 	.MinimumLevel.Debug()
 	.Enrich.FromLogContext()
@@ -17,16 +17,17 @@ Log.Logger = new LoggerConfiguration()
 SQLiteSink writes logs to Logs table:
 
 ```SQL
-CREATE TABLE Logs (
-	Id INTEGER PRIMARY KEY,
-	Timestamp datetime,
-	SourceContext TEXT,
-	Level TEXT,
-	Message TEXT,
-	TraceIdentifier TEXT,
+CREATE TABLE IF NOT EXISTS Logs (
+    Id INTEGER PRIMARY KEY,
+    Timestamp datetime,
+    SourceContext TEXT,
+    Level TEXT,
+    Message TEXT,
+	MessageTemplate TEXT,
+	RequestId TEXT,
 	TraceId TEXT,
 	SpanId TEXT,
-	Properties TEXT,
+    Properties TEXT,
 	Exception TEXT
 );
 ```
@@ -34,4 +35,5 @@ CREATE TABLE Logs (
 
 ## Writing logs
 
-SQLiteSink is efficient writing logs to database, It uses channels to write logs in the background. It writes all available logs from the channel in a single transaction.
+SQLiteSink is efficient writing logs to database, It uses channels to write logs in the background. 
+It writes all available logs from the channel in a single transaction.
