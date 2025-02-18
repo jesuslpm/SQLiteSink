@@ -168,24 +168,28 @@ CREATE INDEX IF NOT EXISTS IX_Logs_RequestId ON Logs(RequestId);";
 			using var output = new StringWriter();
 			if (logEvent.Properties.Count != 0)
 			{
-				output.Write("{");
-				char? separator = null;
 				var props = logEvent.Properties.Where(p => ignoredProperties.Contains(p.Key) == false);
-				foreach (KeyValuePair<string, LogEventPropertyValue> property in props)
+				if (props.Any())
 				{
-					if (separator.HasValue)
+					output.Write("{\n");
+					char? separator = null;
+					foreach (KeyValuePair<string, LogEventPropertyValue> property in props)
 					{
-						output.Write(separator.Value);
+						if (separator.HasValue)
+						{
+							output.WriteLine(separator.Value);
+						}
+						else
+						{
+							separator = ',';
+						}
+						output.Write("  ");
+						JsonValueFormatter.WriteQuotedJsonString(property.Key, output);
+						output.Write(':');
+						this.jsonValueFormatter.Format(property.Value, output);
 					}
-					else
-					{
-						separator = ',';
-					}
-					JsonValueFormatter.WriteQuotedJsonString(property.Key, output);
-					output.Write(':');
-					jsonValueFormatter.Format(property.Value, output);
+					output.Write("\n}");
 				}
-				output.Write('}');
 			}
 			return output.ToString();
 		}
@@ -231,7 +235,7 @@ CREATE INDEX IF NOT EXISTS IX_Logs_RequestId ON Logs(RequestId);";
 				this.messageParam!.Value = GetFormattedMessage(logEvent);
 				this.mtParam!.Value = logEvent.MessageTemplate.Text;
 				var propertiesJson = GetPropertiesJson(logEvent);
-				this.propsParam!.Value = (string.IsNullOrEmpty(propertiesJson) | propertiesJson == "{}") ? DBNull.Value : propertiesJson;
+				this.propsParam!.Value = (string.IsNullOrEmpty(propertiesJson)) ? DBNull.Value : propertiesJson;
 				this.traceIdParam!.Value = logEvent.TraceId.HasValue ? logEvent.TraceId.ToString() : DBNull.Value;
 				this.spanIdParam!.Value = logEvent.SpanId.HasValue ? logEvent.SpanId.ToString() : DBNull.Value;
 				this.exceptionParam!.Value = logEvent.Exception == null ? DBNull.Value : logEvent.Exception.ToString();
