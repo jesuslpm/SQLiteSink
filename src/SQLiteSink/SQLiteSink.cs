@@ -194,7 +194,7 @@ CREATE INDEX IF NOT EXISTS IX_Logs_RequestId ON Logs(RequestId);";
 			return output.ToString();
 		}
 
-		private async Task InsertEventAsync(LogEvent logEvent)
+		private void InsertEvent(LogEvent logEvent)
 		{
 			try 
 			{ 
@@ -239,7 +239,7 @@ CREATE INDEX IF NOT EXISTS IX_Logs_RequestId ON Logs(RequestId);";
 				this.traceIdParam!.Value = logEvent.TraceId.HasValue ? logEvent.TraceId.ToString() : DBNull.Value;
 				this.spanIdParam!.Value = logEvent.SpanId.HasValue ? logEvent.SpanId.ToString() : DBNull.Value;
 				this.exceptionParam!.Value = logEvent.Exception == null ? DBNull.Value : logEvent.Exception.ToString();
-				await this.insertCommand.ExecuteNonQueryAsync().ConfigureAwait(false);
+				this.insertCommand.ExecuteNonQuery();
 			}
 			catch (Exception ex)
 			{
@@ -280,10 +280,11 @@ CREATE INDEX IF NOT EXISTS IX_Logs_RequestId ON Logs(RequestId);";
 				semaphoreAcquired = true;
 				using (transaction = connection.BeginTransaction())
 				{
+					int insertedCount = 0;
 					this.insertCommand.Transaction = transaction;
-					while (queue.Reader.TryRead(out var logEvent))
+					while (queue.Reader.TryRead(out var logEvent) && ++insertedCount < 2048)
 					{
-						await InsertEventAsync(logEvent).ConfigureAwait(false);
+						InsertEvent(logEvent);
 					}
 					transaction.Commit();
 				}
