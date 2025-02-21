@@ -59,30 +59,63 @@ namespace SqliteSinkDemo
 		}
 
 
-		static void Main(string[] args)
+		static async Task Main(string[] args)
 		{
 			ConfigureSerilog();
 			using (var provider = CreateServiceProvider())
 			{
-				var listener = new ActivityListener
-				{
-					ShouldListenTo = source => true, // Escucha todas las actividades
-					SampleUsingParentId = (ref ActivityCreationOptions<string> options) => ActivitySamplingResult.AllData,
-					Sample = (ref ActivityCreationOptions<ActivityContext> options) => ActivitySamplingResult.AllData
-				};
-				ActivitySource.AddActivityListener(listener);
 				var logger = provider.GetRequiredService<ILogger<Program>>();
-				using (var logScope = logger.BeginScope(new Dictionary<string, object> { ["TraceIdentifier"] = Guid.NewGuid()} ))
-				using (var activity = MyActivitySource.StartActivity("Main"))
-				{
-					Activity.Current = activity;
-					for (int i = 0; i < 10; i++)
-					{
-						logger.LogInformation("Hello, {Name}!. {Count}", "Serilog", i);
-					}
-				}
+				var cts = new CancellationTokenSource();
+				var writeLogTask = WriteLogs(logger, cts.Token);
+				await Task.Delay(500);
+				BackupDatabase();
+				cts.Cancel();
+				await writeLogTask.ConfigureAwait(false);
 			}
 			Log.CloseAndFlush();
+		}
+
+		static async Task WriteLogs( Microsoft.Extensions.Logging.ILogger logger, CancellationToken cancellationToken)
+		{
+			await Task.Yield();
+			var listener = new ActivityListener
+			{
+				ShouldListenTo = source => true, // Escucha todas las actividades
+				SampleUsingParentId = (ref ActivityCreationOptions<string> options) => ActivitySamplingResult.AllData,
+				Sample = (ref ActivityCreationOptions<ActivityContext> options) => ActivitySamplingResult.AllData
+			};
+			ActivitySource.AddActivityListener(listener);
+			
+			using (var logScope = logger.BeginScope(new Dictionary<string, object> { ["TraceIdentifier"] = Guid.NewGuid() }))
+			using (var activity = MyActivitySource.StartActivity("Main"))
+			{
+				Activity.Current = activity;
+				int i = 0;
+				while (cancellationToken.IsCancellationRequested == false)
+				{
+					logger.LogInformation("Hello, {Name}!. {Count}", "Serilog", ++i);
+				}
+			}
+		}
+
+		static void BackupDatabase()
+		{
+			var watch = Stopwatch.StartNew();
+			var databasePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Log.db");
+			var backupPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Log.db.bak");
+			var dbBuilder = new SQLiteConnectionStringBuilder();
+			dbBuilder.DataSource = databasePath;
+			var bakBuilder = new SQLiteConnectionStringBuilder();
+			bakBuilder.DataSource = backupPath;
+
+			using (var cn = new SQLiteConnection(dbBuilder.ConnectionString))
+			using (var bak = new SQLiteConnection(bakBuilder.ConnectionString))
+			{
+				cn.Open();
+				bak.Open();
+				cn.BackupDatabase(bak, "main", "main", -1, null, 10);
+			}
+			Console.WriteLine($"Backup completed in {watch.Elapsed}");
 		}
 	}
 }
