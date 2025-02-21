@@ -130,6 +130,8 @@ VALUES (@ts, @level, @msg, @mt, @props, @sourceContext, @requestId, @exception, 
 			builder.JournalMode = options.JournalMode;
 			builder.FailIfMissing = false;
 			builder.Pooling = false;
+			builder.PageSize = 8192;
+			builder.CacheSize = -4096;
 			var connectionString = builder.ConnectionString;
 			var connection = new SQLiteConnection(connectionString);
 			connection.Open();
