@@ -123,15 +123,21 @@ VALUES (@ts, @level, @msg, @mt, @props, @sourceContext, @requestId, @exception, 
 
 		private SQLiteConnection GetConnection()
 		{
+			if (string.IsNullOrEmpty(options.DatabasePath)) throw new ArgumentException("DatabasePath cannot be empty");
+
+			var databasePath = Path.IsPathRooted(options.DatabasePath) ? options.DatabasePath : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, options.DatabasePath);
+			var folderPath = Path.GetDirectoryName(databasePath);
+			if (Directory.Exists(folderPath) == false) Directory.CreateDirectory(folderPath!);	
+
 			var builder = new SQLiteConnectionStringBuilder();
-			builder.DataSource = options.DatabasePath;
+			builder.DataSource = databasePath;
 			builder.DateTimeFormat = SQLiteDateFormats.ISO8601;
 			builder.DateTimeKind = DateTimeKind.Utc;
 			builder.JournalMode = options.JournalMode;
 			builder.FailIfMissing = false;
 			builder.Pooling = false;
 			builder.PageSize = 8192;
-			builder.CacheSize = -4096;
+			builder.CacheSize = -8192;
 			var connectionString = builder.ConnectionString;
 			var connection = new SQLiteConnection(connectionString);
 			connection.Open();
