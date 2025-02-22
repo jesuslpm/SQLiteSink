@@ -1,4 +1,5 @@
 ﻿using Serilog.Configuration;
+using Serilog.Events;
 using System.Data.SQLite;
 
 namespace Serilog.Sinks.SQLite
@@ -9,7 +10,8 @@ namespace Serilog.Sinks.SQLite
 			this LoggerSinkConfiguration loggerConfiguration,
 			string databasePath,
 			TimeSpan? retentionPeriod = null,
-			SQLiteJournalModeEnum journalMode = SQLiteJournalModeEnum.Wal)
+			SQLiteJournalModeEnum journalMode = SQLiteJournalModeEnum.Wal,
+			LogEventLevel restrictedToMinimumLevel = LogEventLevel.Verbose)
 		{
 			if (loggerConfiguration == null) throw new ArgumentNullException(nameof(loggerConfiguration));
 
@@ -24,7 +26,7 @@ namespace Serilog.Sinks.SQLite
 				options.RetentionPeriod = retentionPeriod.Value;
 			}
 
-			return loggerConfiguration.Sink(new SQLiteSink(options));
+			return loggerConfiguration.Sink(new SQLiteSink(options), restrictedToMinimumLevel);
 		}
 	}
 }
